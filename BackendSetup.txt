@@ -1,0 +1,2 @@
+Firstly create a python virtual environment
+
