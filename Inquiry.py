@@ -52,7 +52,7 @@ def create_inquiries_app(mail):
     @inquiries_bp.route('/inquiries', methods=['POST'])
     def create_inquiry():
         data = request.json
-        required_fields = ['name', 'email', 'phone', 'company', 'country', 'jobTitle', 'jobDetail', 'state']
+        required_fields = ['name', 'email', 'phone', 'company', 'country', 'jobTitle', 'jobDetail', 'solution','state']
         
         if not all(data.get(field) for field in required_fields):
             return jsonify({"error": "Missing required fields"}), 400
@@ -64,6 +64,7 @@ def create_inquiries_app(mail):
         country = data['country']
         job_title = data['jobTitle']
         job_detail = data['jobDetail']
+        solution = data['solution']
         state = data['state']
 
         connection = get_db_connection()
@@ -72,10 +73,10 @@ def create_inquiries_app(mail):
 
         cursor = connection.cursor()
         query = """
-            INSERT INTO inquiries (full_name, email, phone, company, country, job_title, job_detail, state)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO inquiries (full_name, email, phone, company, country, job_title, job_detail, solution, state)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
-        values = (full_name, email, phone, company, country, job_title, job_detail, state)
+        values = (full_name, email, phone, company, country, job_title, job_detail, solution, state)
         cursor.execute(query, values)
         connection.commit()
 
@@ -93,6 +94,7 @@ def create_inquiries_app(mail):
         state = request.args.get('state')
         name = request.args.get('name')
         date = request.args.get('date')
+        solution = request.args.get('solution')
 
         connection = get_db_connection()
         if connection is None:
@@ -117,6 +119,9 @@ def create_inquiries_app(mail):
         if date:
             query += " AND DATE(created_at) = %s"  # Use created_at instead of date
             params.append(date)
+        if solution:
+            query += " AND solution = %s"
+            params.append(solution)
 
         # Execute the query with parameters
         cursor.execute(query, params)

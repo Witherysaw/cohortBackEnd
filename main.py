@@ -1,4 +1,5 @@
 from flask import Flask
+from flask_jwt_extended import JWTManager
 from flask_mail import Mail
 from User import create_user_app
 from Inquiry import create_inquiries_app  # Corrected import
@@ -15,8 +16,12 @@ def create_main_app():
     app.config["MAIL_USE_TLS"] = True
     app.config["MAIL_USE_SSL"] = False
 
+     # JWT Configuration
+    app.config["JWT_SECRET_KEY"] = "ilovemaynyeinkyaw" 
+
     # Initialize Mail
     mail = Mail(app)
+    jwt = JWTManager(app) 
 
     # Register blueprints
     user_app = create_user_app()
