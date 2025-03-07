@@ -52,13 +52,13 @@ def create_inquiries_app(mail):
     @inquiries_bp.route('/inquiries', methods=['POST'])
     def create_inquiry():
         data = request.json
-        required_fields = ['name', 'email', 'phone', 'company', 'country', 'jobTitle', 'jobDetail', 'solution','state']
-        
+        required_fields = ['name', 'email', 'phone', 'company', 'country', 'jobTitle', 'jobDetail', 'solution', 'state']
+
         if not all(data.get(field) for field in required_fields):
             return jsonify({"error": "Missing required fields"}), 400
 
-        full_name = data['name']
         email = data['email']
+        full_name = data['name']
         phone = data['phone']
         company = data['company']
         country = data['country']
@@ -71,7 +71,20 @@ def create_inquiries_app(mail):
         if connection is None:
             return jsonify({"error": "Failed to connect to the database"}), 500
 
-        cursor = connection.cursor()
+        cursor = connection.cursor(dictionary=True)
+
+        # Check if an inquiry with the same email exists and is not "Completed"
+        cursor.execute("SELECT * FROM inquiries WHERE email = %s AND state != 'Completed'", (email,))
+        existing_inquiry = cursor.fetchone()
+
+        if existing_inquiry:
+            cursor.close()
+            connection.close()
+            return jsonify({
+                "error": "You already have an inquiry in progress. Please wait for it to be resolved before submitting another."
+            }), 401
+
+        # Insert the new inquiry
         query = """
             INSERT INTO inquiries (full_name, email, phone, company, country, job_title, job_detail, solution, state)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -130,7 +143,7 @@ def create_inquiries_app(mail):
         cursor.close()
         connection.close()
         return jsonify(inquiries), 200
-    
+
     # Fetch unique countries for the dropdown
     @inquiries_bp.route('/inquiries/countries', methods=['GET'])
     def get_countries():
@@ -148,8 +161,6 @@ def create_inquiries_app(mail):
 
         # Accessing the country name from the tuple
         return jsonify([country[0] for country in countries]), 200
-
-
 
     # Update an inquiry
     @inquiries_bp.route('/inquiries/<int:inquiry_id>', methods=['PUT'])
