@@ -22,6 +22,36 @@ UPLOAD_FOLDER = "uploads"
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
+@blogs_bp.route("/blogs/<int:blog_id>", methods=["GET"])
+def get_blog(blog_id):
+    try:
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute("""
+            SELECT blogs.*, users.name AS writer_name
+            FROM blogs
+            JOIN users ON blogs.user_id = users.id
+            WHERE blogs.id = %s
+        """, (blog_id,))
+
+        blog = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if blog:
+            # Ensure correct image paths
+            blog["image1"] = f"http://localhost:5000/uploads/{os.path.basename(blog['image1'])}"
+            blog["image2"] = f"http://localhost:5000/uploads/{os.path.basename(blog['image2'])}"
+            blog["image3"] = f"http://localhost:5000/uploads/{os.path.basename(blog['image3'])}"
+            return jsonify(blog), 200
+
+        return jsonify({"error": "Blog not found"}), 404
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 # API to get the latest blog ID
 @blogs_bp.route("/latest-blog-id", methods=["GET"])
 def get_latest_blog_id():
