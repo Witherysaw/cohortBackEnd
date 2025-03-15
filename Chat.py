@@ -8,7 +8,7 @@ def create_chat_app():
     CORS(chat_bp)
 
     # Directly using your OpenAI API key
-    openai.api_key = "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"  # Replace with your API key
+    openai.api_key = "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"  # Replace with your API key
 
     @chat_bp.route('/chat', methods=['POST'])
     def chat():

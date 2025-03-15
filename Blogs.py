@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_cors import CORS
 import os
 from werkzeug.utils import secure_filename
+from werkzeug.datastructures import FileStorage
 import mysql.connector
 from flask import send_from_directory
 
@@ -178,3 +179,81 @@ def upload_image():
     file.save(filepath)
 
     return jsonify({"image_url": filepath}), 200
+
+from werkzeug.datastructures import FileStorage  # Import this at the top of your file
+
+@blogs_bp.route("/blogs/<int:blog_id>", methods=["PUT"])
+def update_blog(blog_id):
+    try:
+        data = request.form
+        image1 = request.files.get("image1")  # Get image1 from the form data
+        image2 = request.files.get("image2")  # Get image2 from the form data
+        image3 = request.files.get("image3")  # Get image3 from the form data
+
+        # Debugging: Output received data and images
+        print("Received data:", data)
+        print("Received image1:", image1.filename if image1 else None)
+        print("Received image2:", image2.filename if image2 else None)
+        print("Received image3:", image3.filename if image3 else None)
+
+        # Ensure title and paragraphs are provided
+        if not data.get("title"):
+            return jsonify({"error": "Title is required"}), 400
+
+        # Connect to DB
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+
+        # Retrieve existing user_id to prevent updating it
+        cursor.execute("SELECT user_id FROM blogs WHERE id = %s", (blog_id,))
+        existing_user = cursor.fetchone()
+
+        # Debugging: Check if blog exists
+        if not existing_user:
+            print(f"Blog with ID {blog_id} not found.")
+            return jsonify({"error": "Blog not found"}), 404
+
+        user_id = existing_user[0]  # Keep the original user_id
+
+        # Prepare updated image paths if new images are uploaded
+        image_paths = []
+
+        # Process uploaded images (FileStorage objects)
+        for img, i in zip([image1, image2, image3], range(1, 4)):
+            if img and isinstance(img, FileStorage):  # Check if it's a file object
+                filename = secure_filename(img.filename)
+                filepath = os.path.join(UPLOAD_FOLDER, filename)
+                img.save(filepath)
+                image_paths.append(filepath)
+                print(f"Image{i} saved: {filename} at {filepath}")
+            else:
+                # Handle case where no new image is uploaded for that specific slot
+                cursor.execute(f"SELECT image{i} FROM blogs WHERE id = %s", (blog_id,))
+                existing_image = cursor.fetchone()[0]
+                image_paths.append(existing_image)
+                print(f"Using existing image{i}: {existing_image}")
+
+        # Ensure exactly 3 images are provided (either URLs or uploaded images)
+        if len(image_paths) != 3:
+            print("Error: Exactly 3 images are required")
+            return jsonify({"error": "Exactly 3 images are required"}), 400
+
+        # Update the blog with new or existing images
+        query = """UPDATE blogs
+                   SET title = %s, paragraph1 = %s, paragraph2 = %s, paragraph3 = %s, 
+                       image1 = %s, image2 = %s, image3 = %s
+                   WHERE id = %s"""
+        cursor.execute(query, (data["title"], data["paragraph1"], data["paragraph2"], data["paragraph3"],
+                               image_paths[0], image_paths[1], image_paths[2], blog_id))
+        print(f"Blog {blog_id} updated with images.")
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({"message": "Blog updated successfully"}), 200
+
+    except Exception as e:
+        # Debugging: Output the full error message
+        print(f"Error updating blog: {e}")
+        return jsonify({"error": str(e)}), 500
